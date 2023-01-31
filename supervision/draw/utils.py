@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from supervision.commons.dataclasses import Point, Rect
+from supervision.geometry.dataclasses import Point, Rect
 from supervision.draw.color import Color
 
 

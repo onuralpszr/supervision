@@ -20,7 +20,10 @@ extra:
 
 nav:
   - Home: index.md
-  - Video: video.md
+  - API reference:
+    - Draw:
+      - Color: color.md
+    - Video: video.md
 
 theme:
   name: 'material'
