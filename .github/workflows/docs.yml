@@ -6,6 +6,9 @@ on:
       - master
       - main
       - develop
+      
+permissions: write-all
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
