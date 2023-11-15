@@ -7,7 +7,10 @@ on:
       - main
       - develop
       
-permissions: write-all
+permissions:
+  contents: write
+  pages: write
+  pull-requests: write
 
 jobs:
   deploy:
