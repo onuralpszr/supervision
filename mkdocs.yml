@@ -22,8 +22,6 @@ extra:
     property: G-P7ZG0Y19G5
   version:
     provider: mike
-    default:
-      - latest
 
 extra_css:
   - stylesheets/extra.css
