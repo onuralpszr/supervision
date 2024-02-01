@@ -89,9 +89,8 @@ theme:
 
 plugins:
   - mkdocstrings
-  - search
   - mike:
-    canonical_version: latest
+      canonical_version: latest
 
 markdown_extensions:
   - admonition
