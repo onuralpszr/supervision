@@ -173,6 +173,47 @@ class Detections:
         )
 
     @classmethod
+    def from_yolov7(cls, yolov7_results) -> Detections:
+        """
+        Creates a Detections instance from a
+        [YOLOv7](https://github.com/WongKinYiu/yolov7) inference result.
+
+        Args:
+            yolov7_results (yolov7.models.common.Detections):
+                The output Detections instance from YOLOv7
+
+        Returns:
+            Detections: A new Detections object.
+
+        Example:
+            ```console
+            git clone https://github.com/WongKinYiu/yolov7
+            cd yolov7
+            wget https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt
+            ```
+
+            ```python
+            import cv2
+            import torch
+            import supervision as sv
+            from  hubconf import custom
+            
+
+            image = cv2.imread(<SOURCE_IMAGE_PATH>)
+            model = custom(path_or_model='yolov7.pt')
+            result = model(image)
+            detections = sv.Detections.from_yolov7(result)
+            ```
+        """
+        yolov7_detections_predictions = yolov7_results.pred[0].cpu().cpu().numpy()
+
+        return cls(
+            xyxy=yolov7_detections_predictions[:, :4],
+            confidence=yolov7_detections_predictions[:, 4],
+            class_id=yolov7_detections_predictions[:, 5].astype(int),
+        )
+
+    @classmethod
     def from_ultralytics(cls, ultralytics_results) -> Detections:
         """
         Creates a Detections instance from a
