@@ -1,4 +1,4 @@
-name: Docs WorkFlow - Develop Tag name test 📚
+name: Docs WorkFlow - Develop Tag 📚
 
 on:
   push:
