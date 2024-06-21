@@ -62,4 +62,4 @@ jobs:
           -H "Accept: application/vnd.github.v3+json" \
           -H "Authorization: token $GITHUB_TOKEN" \
           "${ISSUE_URL}/comments" \
-          --data "{\"body\": $body}"
+          --data "{\"body\": \"$body\"}"
