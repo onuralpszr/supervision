@@ -12,7 +12,6 @@ jobs:
       contents: read
       pull-requests: write
 
-    if: ${{ github.actor == 'tfdocsbot' }}
     runs-on: ubuntu-latest
     steps:
     - name: Fetch pull request branch
