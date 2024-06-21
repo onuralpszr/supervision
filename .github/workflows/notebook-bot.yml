@@ -4,7 +4,6 @@ on:
   pull_request_target:
     types: [opened, reopened]
 
-
 permissions:
   contents: read
 
@@ -19,15 +18,15 @@ jobs:
     - name: Fetch pull request branch
       uses: actions/checkout@v2
       with:
-        repository: ${{ github.event.client_payload.pull_request.head.repo.full_name }}
-        ref: ${{ github.event.client_payload.pull_request.head.sha }}
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
+        ref: ${{ github.event.pull_request.head.sha }}
     - name: Fetch base develop branch
       run: git fetch -u "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" develop:develop
     - name: Create message
       env:
-        HEAD_REPOSITORY: ${{ github.event.client_payload.pull_request.head.repo.full_name }}
-        HEAD_REF: ${{ github.event.client_payload.pull_request.head.ref }}
-        PR_NUM: ${{ github.event.client_payload.pull_request.number }}
+        HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+        HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        PR_NUM: ${{ github.event.pull_request.number }}
       run: |
         # Preview links and tool usage only needed for notebook changes.
         readarray -t changed_notebooks < <(git diff --name-only develop | grep '\.ipynb$' || true)
@@ -53,7 +52,7 @@ jobs:
     - name: Post comment
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        ISSUE_URL: ${{ github.event.client_payload.pull_request.issue_url }}
+        ISSUE_URL: ${{ github.event.pull_request.issue_url }}
       run: |
         # Env var defined in previous step. Escape string for JSON.
         body="$(echo -n -e $MESSAGE | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')"
@@ -62,4 +61,4 @@ jobs:
           -H "Accept: application/vnd.github.v3+json" \
           -H "Authorization: token $GITHUB_TOKEN" \
           "${ISSUE_URL}/comments" \
-          --data "{\"body\": \"$body\"}"
+          --data "{\"body\": $body}"
