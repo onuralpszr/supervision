@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import time
 from collections import deque
+from collections.abc import Callable, Generator
 from dataclasses import dataclass
-from typing import Callable, Generator, Optional, Tuple
 
 import cv2
 import numpy as np
-
-from supervision.utils.internal import deprecated
+from tqdm.auto import tqdm
 
 
 @dataclass
@@ -21,7 +20,7 @@ class VideoInfo:
         width (int): width of the video in pixels
         height (int): height of the video in pixels
         fps (int): frames per second of the video
-        total_frames (int, optional): total number of frames in the video,
+        total_frames (Optional[int]): total number of frames in the video,
             default is None
 
     Examples:
@@ -41,7 +40,7 @@ class VideoInfo:
     width: int
     height: int
     fps: int
-    total_frames: Optional[int] = None
+    total_frames: int | None = None
 
     @classmethod
     def from_video_path(cls, video_path: str) -> VideoInfo:
@@ -57,7 +56,7 @@ class VideoInfo:
         return VideoInfo(width, height, fps, total_frames)
 
     @property
-    def resolution_wh(self) -> Tuple[int, int]:
+    def resolution_wh(self) -> tuple[int, int]:
         return self.width, self.height
 
 
@@ -118,7 +117,9 @@ class VideoSink:
         self.__writer.release()
 
 
-def _validate_and_setup_video(source_path: str, start: int, end: Optional[int]):
+def _validate_and_setup_video(
+    source_path: str, start: int, end: int | None, iterative_seek: bool = False
+):
     video = cv2.VideoCapture(source_path)
     if not video.isOpened():
         raise Exception(f"Could not open video at {source_path}")
@@ -127,13 +128,26 @@ def _validate_and_setup_video(source_path: str, start: int, end: Optional[int]):
         raise Exception("Requested frames are outbound")
     start = max(start, 0)
     end = min(end, total_frames) if end is not None else total_frames
-    video.set(cv2.CAP_PROP_POS_FRAMES, start)
+
+    if iterative_seek:
+        while start > 0:
+            success = video.grab()
+            if not success:
+                break
+            start -= 1
+    elif start > 0:
+        video.set(cv2.CAP_PROP_POS_FRAMES, start)
+
     return video, start, end
 
 
 def get_video_frames_generator(
-    source_path: str, stride: int = 1, start: int = 0, end: Optional[int] = None
-) -> Generator[np.ndarray, None, None]:
+    source_path: str,
+    stride: int = 1,
+    start: int = 0,
+    end: int | None = None,
+    iterative_seek: bool = False,
+) -> Generator[np.ndarray]:
     """
     Get a generator that yields the frames of the video.
 
@@ -145,6 +159,9 @@ def get_video_frames_generator(
             video should generate frames
         end (Optional[int]): Indicates the ending position at which video
             should stop generating frames. If None, video will be read to the end.
+        iterative_seek (bool): If True, the generator will seek to the
+            `start` frame by grabbing each frame, which is much slower. This is a
+            workaround for videos that don't open at all when you set the `start` value.
 
     Returns:
         (Generator[np.ndarray, None, None]): A generator that yields the
@@ -158,7 +175,9 @@ def get_video_frames_generator(
             ...
         ```
     """
-    video, start, end = _validate_and_setup_video(source_path, start, end)
+    video, start, end = _validate_and_setup_video(
+        source_path, start, end, iterative_seek
+    )
     frame_position = start
     while True:
         success, frame = video.read()
@@ -177,6 +196,9 @@ def process_video(
     source_path: str,
     target_path: str,
     callback: Callable[[np.ndarray, int], np.ndarray],
+    max_frames: int | None = None,
+    show_progress: bool = False,
+    progress_message: str = "Processing video",
 ) -> None:
     """
     Process a video file by applying a callback function on each frame
@@ -189,6 +211,9 @@ def process_video(
             a numpy ndarray representation of a video frame and an
             int index of the frame and returns a processed numpy ndarray
             representation of the frame.
+        max_frames (Optional[int]): The maximum number of frames to process.
+        show_progress (bool): Whether to show a progress bar.
+        progress_message (str): The message to display in the progress bar.
 
     Examples:
         ```python
@@ -205,12 +230,29 @@ def process_video(
         ```
     """
     source_video_info = VideoInfo.from_video_path(video_path=source_path)
+    video_frames_generator = get_video_frames_generator(
+        source_path=source_path, end=max_frames
+    )
     with VideoSink(target_path=target_path, video_info=source_video_info) as sink:
+        total_frames = (
+            min(source_video_info.total_frames, max_frames)
+            if max_frames is not None
+            else source_video_info.total_frames
+        )
         for index, frame in enumerate(
-            get_video_frames_generator(source_path=source_path)
+            tqdm(
+                video_frames_generator,
+                total=total_frames,
+                disable=not show_progress,
+                desc=progress_message,
+            )
         ):
             result_frame = callback(frame, index)
             sink.write_frame(frame=result_frame)
+        else:
+            for index, frame in enumerate(video_frames_generator):
+                result_frame = callback(frame, index)
+                sink.write_frame(frame=result_frame)
 
 
 class FPSMonitor:
@@ -238,24 +280,6 @@ class FPSMonitor:
             ```
         """  # noqa: E501 // docs
         self.all_timestamps = deque(maxlen=sample_size)
-
-    @deprecated(
-        "`FPSMonitor.__call__` is deprecated and will be removed in "
-        "`supervision-0.22.0`. Use `FPSMonitor.fps` instead."
-    )
-    def __call__(self) -> float:
-        """
-        !!! failure "Deprecated"
-
-            `FPSMonitor.__call__` is deprecated and will be removed in
-            `supervision-0.22.0`. Use `FPSMonitor.fps` instead.
-
-        Computes and returns the average FPS based on the stored time stamps.
-
-        Returns:
-            float: The average FPS. Returns 0.0 if no time stamps are stored.
-        """
-        return self.fps
 
     @property
     def fps(self) -> float:
